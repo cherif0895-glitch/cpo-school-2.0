@@ -924,4 +924,18 @@ body.sch-print-mode .sch-session.yellow,body.sch-print-mode .sch-legend .yellow{
 body.sch-print-mode .sch-session.purple,body.sch-print-mode .sch-legend .purple{background:#e2caff!important}
 body.sch-print-mode .sch-session.gray,body.sch-print-mode .sch-legend .gray{background:#d9d9df!important}
 }
+</style><style id="cpo-schedule-print-centering">
+@page schedule{size:A4 landscape;margin:8mm}
+@media print{
+body.sch-print-mode #stt{page:schedule;left:0!important;right:0!important;top:0!important;bottom:0!important;width:277mm!important;max-width:277mm!important;height:190mm!important;margin:auto!important;display:flex!important;flex-direction:column!important;justify-content:center!important;box-sizing:border-box!important}
+body.sch-print-mode #schPrintHeader{width:100%;box-sizing:border-box}
+body.sch-print-mode .sch-class-view{width:100%!important;margin:0 auto!important}
+body.sch-print-mode .sch-grid{width:100%!important;margin:0 auto!important}
+body.sch-print-mode .sch-list-panel{width:100%!important;margin-left:auto!important;margin-right:auto!important}
+.cpo-schedule-page{page:schedule;width:100%;max-width:277mm;min-height:180mm;margin:0 auto;display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;page-break-after:always;break-after:page}
+.cpo-schedule-page:last-child{page-break-after:auto;break-after:auto}
+.cpo-schedule-page .cpo-report-title{text-align:center;margin:0 auto 8mm;width:100%}
+.cpo-schedule-page .cpo-schedule-class{width:100%;max-width:220mm;margin:0 auto 8mm;text-align:center}
+.cpo-schedule-page .cpo-schedule-table{width:100%;margin:0 auto}
+}
 </style></body></html>
