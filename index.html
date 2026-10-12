@@ -171,17 +171,11 @@ function del(c,id){if(!["Administrateur","Direction","Surveillant Général","Su
     const rows=db.abs.map((a,i)=>`<tr><td>${i+1}</td><td>${safe(a.eleve)}</td><td>${safe(a.date)}</td><td>${safe(a.type||'Absence')}</td><td>${safe(a.justif||a.motif||'')}</td></tr>`).join('');
     cpoPrint('Rapport des absences',`<div class="cpo-report-title"><h1>C.P.O. SCHOOL</h1><h2>RAPPORT DES ABSENCES ET RETARDS</h2><p>Édité le ${today()}</p></div><table border="1" cellspacing="0" cellpadding="8" style="width:100%;border-collapse:collapse"><tr><th>#</th><th>Élève</th><th>Date</th><th>Type</th><th>Justification / Motif</th></tr>${rows||'<tr><td colspan="5">Aucune absence</td></tr>'}</table>`)
   };
-  window.cpoPrintSchedule=function(classOnly){
-    const jours=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-    const now=new Date(),yearStart=now.getMonth()>=8?now.getFullYear():now.getFullYear()-1;
-    const schoolYear=(db.cfg&&db.cfg.annee)||(yearStart+'–'+(yearStart+1));
-    const pages=(classOnly?[classOnly]:classes).map(c=>{
-      const rows=db.schedule.filter(x=>x.classe===c).sort((a,b)=>jours.indexOf(a.jour)-jours.indexOf(b.jour)||String(a.debut||'').localeCompare(String(b.debut||'')));
-      const body=rows.map(x=>'<tr><td>'+safe(x.jour)+'</td><td>'+safe(x.debut)+' – '+safe(x.fin)+'</td><td><b>'+safe(x.matiere)+'</b></td><td>'+safe(x.enseignant)+'</td><td>'+safe(x.salle||'—')+'</td></tr>').join('');
-      return '<section class="cpo-schedule-page"><div class="cpo-report-title"><h1>C.P.O. SCHOOL</h1><h2>EMPLOI DU TEMPS</h2><p>Année scolaire '+safe(schoolYear)+' · Édité le '+today()+'</p></div><h2 class="cpo-schedule-class">'+safe(c)+'</h2><table class="cpo-schedule-table"><thead><tr><th>Jour</th><th>Horaire</th><th>Matière</th><th>Enseignant</th><th>Salle</th></tr></thead><tbody>'+(body||'<tr><td colspan="5">Aucun cours planifié.</td></tr>')+'</tbody></table></section>';
-    }).join('');
-    cpoPrint('Emplois du temps par classe',pages||'<div class="cpo-report-title"><h1>C.P.O. SCHOOL</h1><h2>EMPLOI DU TEMPS</h2></div><p>Aucun cours enregistré.</p>')
-  };  window.cpoBulletinModal=function(){
+  window.cpoPrintSchedule=function(){
+    const rows=db.schedule.map((x,i)=>`<tr><td>${i+1}</td><td>${safe(x.classe)}</td><td>${safe(x.jour)}</td><td>${safe(x.debut)} - ${safe(x.fin)}</td><td>${safe(x.matiere)}</td><td>${safe(x.enseignant)}</td><td>${safe(x.salle)}</td></tr>`).join('');
+    cpoPrint('Emploi du temps',`<div class="cpo-report-title"><h1>C.P.O. SCHOOL</h1><h2>EMPLOI DU TEMPS</h2><p>Édité le ${today()}</p></div><table border="1" cellspacing="0" cellpadding="8" style="width:100%;border-collapse:collapse"><tr><th>#</th><th>Classe</th><th>Jour</th><th>Horaire</th><th>Matière</th><th>Enseignant</th><th>Salle</th></tr>${rows||'<tr><td colspan="7">Aucun cours</td></tr>'}</table>`)
+  };
+  window.cpoBulletinModal=function(){
     if(!ok('notes')){toast('Accès non autorisé.');return}
     const opts=db.students.map(s=>`<option value="${safe(s.nom+' '+s.prenom)}">${safe(s.nom+' '+s.prenom)} — ${safe(s.classe)}</option>`).join('');
     form('Éditer un bulletin',`<div class="field"><label>Élève</label><select id="cpoBulletinStudent">${opts}</select></div><button class="btn primary" type="submit">📄 Générer le bulletin PDF</button>`,e=>{e.preventDefault();const name=document.getElementById('cpoBulletinStudent').value;cpoPrintBulletin(name);close()});
@@ -480,17 +474,14 @@ save();window.close();show('absences');toast('Appel '+c+' enregistré : '+n+' ab
 const L=()=>{const c=document.getElementById('apc').value,d=document.getElementById('apd').value;document.getElementById('apl').innerHTML='<table>'+(db.students.filter(s=>s.classe===c).map(s=>{const x=db.abs.find(a=>mine(a,s)&&a.date===d),v=!x?'Présent':x.type==='Retard'?'Retard':x.just==='Justifiée'?'Absent justifié':'Absent';
 return`<tr><td>${E(s.nom+' '+s.prenom)}</td><td><select id="ap${s.id}">${['Présent','Absent','Absent justifié','Retard'].map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('')}</select></td></tr>`}).join('')||'<tr><td>Aucun élève dans cette classe.</td></tr>')+'</table>'};
 document.getElementById('apc').onchange=L;document.getElementById('apd').onchange=L;L()};
- // ---- Emploi du temps
-let SCH_CLASS=classes[0],SCH_WEEK=new Date();
-const schMonday=d=>{const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x};
-const schDateLabel=()=>{const a=schMonday(SCH_WEEK),b=new Date(a);b.setDate(a.getDate()+6);const f=d=>d.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});return 'Semaine du '+f(a)+(a.getMonth()===b.getMonth()?' au '+b.getDate()+' '+b.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}):' au '+f(b))};
-window.schWeekMove=function(n){const d=schMonday(SCH_WEEK);d.setDate(d.getDate()+7*n);SCH_WEEK=d;show('emploi')};
-window.schSelect=function(c){SCH_CLASS=c;show('emploi')};
-window.schExport=function(){const r=db.schedule.filter(x=>x.classe===SCH_CLASS).sort((a,b)=>JOURS.indexOf(a.jour)-JOURS.indexOf(b.jour)||a.debut.localeCompare(b.debut));const q=v=>'"'+String(v||'').replace(/"/g,'""')+'"';const csv='\uFEFF'+['Jour;Horaire;Matière;Enseignant;Salle'].concat(r.map(x=>[x.jour,(x.debut||'')+' - '+(x.fin||''),x.matiere,x.enseignant,x.salle].map(q).join(';'))).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='Emploi_du_temps_'+SCH_CLASS.replace(/[^\w-]/g,'_')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
-window.schedule=function(){const tabs=classes.map(c=>'<button class="sch-class-tab'+(c===SCH_CLASS?' active':'')+'" onclick="schSelect('+JSON.stringify(c).replace(/"/g,'&quot;')+')">'+E(c)+'</button>').join('');return head('Emplois du temps','Consultez et gérez les emplois du temps de toutes les classes','')+'<div class="sch-page"><section class="sch-controls"><b>Choisir une classe :</b><div class="sch-tabs">'+tabs+'</div><div class="sch-toolbar"><div class="sch-week"><button class="btn ghost" onclick="schWeekMove(-1)" aria-label="Semaine précédente">←</button><strong>'+schDateLabel()+'</strong><button class="btn ghost" onclick="schWeekMove(1)" aria-label="Semaine suivante">→</button></div><div class="sch-actions">'+(can()?'<button class="btn primary" onclick="ED(&quot;schedule&quot;)">⊕ Ajouter une séance</button>':'')+(can()?'<button class="btn" onclick="schEditPrompt()">✎ Modifier</button>':'')+(can()?'<button class="btn danger" onclick="schDeletePrompt()">▣ Supprimer</button>':'')+'<button class="btn" onclick="schPrintView()">▣ Imprimer en PDF</button><button class="btn" onclick="schExport()">⇩ Exporter Excel</button></div></div></section><section class="sch-board-wrap"><div id="stt">'+schRender(true)+'</div></section></div>'};
-window.schRender=function(init){const rows=db.schedule.filter(x=>x.classe===SCH_CLASS).sort((a,b)=>JOURS.indexOf(a.jour)-JOURS.indexOf(b.jour)||a.debut.localeCompare(b.debut));const hrs=Array.from({length:11},(_,i)=>i+8);let cells='<div class="sch-cell sch-corner" style="grid-column:1;grid-row:1">Horaire</div>'+JOURS.map((d,i)=>'<div class="sch-cell sch-day-head" style="grid-column:'+(i+2)+';grid-row:1">'+d+'</div>').join('');hrs.forEach(h=>{cells+='<div class="sch-cell sch-hour" style="grid-column:1;grid-row:'+(h-6)+'">'+String(h).padStart(2,'0')+'h00 - '+String(h+1).padStart(2,'0')+'h00</div>';JOURS.forEach((d,i)=>cells+='<div class="sch-cell sch-empty-cell" style="grid-column:'+(i+2)+';grid-row:'+(h-6)+'"></div>')});rows.forEach(x=>{const di=JOURS.indexOf(x.jour);if(di<0)return;let st=parseInt((x.debut||'08:00').slice(0,2),10),en=parseInt((x.fin||'09:00').slice(0,2),10);if((x.fin||'').slice(3,5)==='30')en+=.5;if((x.debut||'').slice(3,5)==='30')st+=.5;st=Math.max(8,Math.min(18.5,st));en=Math.max(st+.5,Math.min(19,en));const mat=(x.matiere||'').toLowerCase(),tone=/svt|science|biologie/.test(mat)?'green':/espagnol|anglais/.test(mat)?'blue':/fran[cç]ais|fra\b/.test(mat)?'pink':/math/.test(mat)?'yellow':/pause/.test(mat)?'gray':'purple';cells+='<article class="sch-session '+tone+'" style="grid-column:'+(di+2)+';grid-row:'+(st-6)+' / '+(en-6)+'"><b>'+E(x.matiere)+'</b><span>'+E(x.enseignant)+'</span><small>'+E(x.debut)+' – '+E(x.fin)+(x.salle?' · '+E(x.salle):'')+'</small></article>'});const grid='<div class="sch-grid">'+cells+'</div>';const legend='<div class="sch-legend"><span class="green">SVT</span><span class="blue">Langues</span><span class="pink">Français</span><span class="yellow">Mathématiques</span><span class="purple">Autres matières</span><span class="gray">Pause</span></div>';const table='<section class="sch-list-panel"><h2>Liste des séances - '+E(SCH_CLASS)+'</h2><div class="sch-table-wrap"><table class="sch-list-table"><thead><tr><th>#</th><th>Jour</th><th>Horaire</th><th>Matière</th><th>Enseignant</th><th>Salle</th>'+(can()?'<th>Actions</th>':'')+'</tr></thead><tbody>'+(rows.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+E(x.jour)+'</td><td>'+E(x.debut)+' - '+E(x.fin)+'</td><td>'+E(x.matiere)+'</td><td>'+E(x.enseignant)+'</td><td>'+E(x.salle||'---')+'</td>'+(can()?'<td>'+B('schedule',x.id)+'</td>':'')+'</tr>').join('')||'<tr><td colspan="'+(can()?7:6)+'">Aucune séance enregistrée pour cette classe.</td></tr>')+'</tbody></table></div></section>';const h='<div class="sch-class-view">'+grid+legend+table+'</div>';if(init)return h;const el=document.getElementById('stt');if(el)el.innerHTML=h};
-window.schPrintView=function(){const root=document.getElementById('stt');if(!root)return;const head=document.createElement('header');head.id='schPrintHeader';head.innerHTML='<h1>C.P.O. SCHOOL · EMPLOI DU TEMPS</h1><p><b>Classe : '+E(SCH_CLASS)+'</b> · '+schDateLabel()+'</p>';root.prepend(head);document.body.classList.add('sch-print-mode');const done=()=>{document.body.classList.remove('sch-print-mode');head.remove()};window.addEventListener('afterprint',done,{once:true});if(typeof window.print==='function')window.print();else{done();toast('Impression indisponible dans ce navigateur.')}};window.schEditPrompt=function(){const r=db.schedule.filter(x=>x.classe===SCH_CLASS).sort((a,b)=>JOURS.indexOf(a.jour)-JOURS.indexOf(b.jour)||a.debut.localeCompare(b.debut));if(!r.length){toast('Aucune séance à modifier pour cette classe.');return}const n=prompt('Numéro de la séance à modifier :'+String.fromCharCode(10)+r.map((x,i)=>(i+1)+'. '+x.jour+' '+x.debut+' - '+x.fin+' · '+x.matiere).join(String.fromCharCode(10)),'1');const x=r[Number(n)-1];if(x)ED('schedule',x.id)};
-window.schDeletePrompt=function(){const r=db.schedule.filter(x=>x.classe===SCH_CLASS).sort((a,b)=>JOURS.indexOf(a.jour)-JOURS.indexOf(b.jour)||a.debut.localeCompare(b.debut));if(!r.length){toast('Aucune séance à supprimer pour cette classe.');return}const n=prompt('Numéro de la séance à supprimer :'+String.fromCharCode(10)+r.map((x,i)=>(i+1)+'. '+x.jour+' '+x.debut+' - '+x.fin+' · '+x.matiere).join(String.fromCharCode(10)),'1');const x=r[Number(n)-1];if(x)DL('schedule',x.id)};// ---- Notes, discipline, annonces
+// ---- Emploi du temps
+let SV='liste';window.schToggle=()=>{SV=SV==='liste'?'grille':'liste';show('emploi')};
+window.schedule=function(){return head('Emploi du temps','Vue liste ou grille, modification et détection des conflits',`<button class="btn" onclick="schToggle()">${SV==='liste'?'🗓️ Vue grille':'📋 Vue liste'}</button> <button class="btn" onclick="cpoPrintSchedule()">📄 PDF</button>${can()?' <button class="btn primary" onclick="ED(\'schedule\')">+ Ajouter un cours</button>':''}`)+`<div class="panel"><div class="toolbar"><select id="scl" onchange="schRender()"><option value="">Toutes les classes</option>${classes.map(x=>`<option>${x}</option>`).join('')}</select></div><div id="stt" style="overflow-x:auto">${schRender(true)}</div></div>`};
+window.schRender=function(init){const c=document.getElementById('scl')?.value||'',r=db.schedule.filter(x=>!c||x.classe===c).sort((a,b)=>JOURS.indexOf(a.jour)-JOURS.indexOf(b.jour)||a.debut.localeCompare(b.debut));
+const h=SV==='liste'?`<table><tr><th>Classe</th><th>Jour</th><th>Horaire</th><th>Matière</th><th>Enseignant</th><th>Salle</th><th></th></tr>${r.map(x=>`<tr><td>${x.classe}</td><td>${x.jour}</td><td>${x.debut}–${x.fin}</td><td>${E(x.matiere)}</td><td>${E(x.enseignant)}</td><td>${E(x.salle)}</td><td>${B('schedule',x.id)}</td></tr>`).join('')||'<tr><td colspan="7">Aucun cours.</td></tr>'}</table>`:
+`<div style="display:grid;grid-template-columns:repeat(6,minmax(140px,1fr));gap:8px">${JOURS.map(j=>`<div><div class="tag" style="display:block;text-align:center;margin-bottom:6px">${j}</div>${r.filter(x=>x.jour===j).map(x=>`<div style="background:#fff;border:1px solid #e5d5c2;border-left:4px solid var(--b);border-radius:8px;padding:7px;margin-bottom:6px;font-size:12px"><b>${x.debut}–${x.fin}</b><br>${E(x.matiere)}<br><span class="sub">${c?'':E(x.classe)+' · '}${E(x.enseignant)}${x.salle?' · '+E(x.salle):''}</span><br>${B('schedule',x.id)}</div>`).join('')}</div>`).join('')}</div>`;
+if(init)return h;document.getElementById('stt').innerHTML=h};
+// ---- Notes, discipline, annonces
 window.notes=function(){return head('Notes & bulletins','Saisie, modification et bulletins',`<button class="btn" onclick="cpoBulletinModal()">🎓 Bulletin</button> <button class="btn primary" onclick="noteModal()">+ Saisir une note</button>`)+`<div class="panel"><table><tr><th>Élève</th><th>Matière</th><th>Note</th><th>Coef.</th><th>Période</th><th></th></tr>${db.notes.map(x=>`<tr><td>${E(x.eleve)}</td><td>${E(x.mat)}</td><td>${E(x.note)}/20</td><td>${E(x.coef)}</td><td>${E(x.periode||'Semestre 1')} · ${E(x.type||'')}</td><td>${B('notes',x.id)}</td></tr>`).join('')||'<tr><td colspan="5">Aucune note.</td></tr>'}</table></div>`};
 window.discipline=function(){return head('Discipline','Incidents et dispositions',`${can()?'<button class="btn" onclick="cpoPrintDiscipline()">📄 PDF</button> <button class="btn primary" onclick="discModal()">+ Ajouter un incident</button>':''}`)+`<div class="panel"><table><tr><th>Élève</th><th>Date</th><th>Incident</th><th>Disposition</th><th>Statut</th><th></th></tr>${db.disc.map(x=>`<tr><td>${E(x.eleve)}</td><td>${E(x.date)}</td><td>${E(x.type)} — ${E(x.desc)}</td><td>${E(x.action)}</td><td>${E(x.status)}</td><td>${B('disc',x.id)}</td></tr>`).join('')||'<tr><td colspan="6">Aucun incident.</td></tr>'}</table></div>`};
 window.communication=function(){return head('Communication','Annonces de C.P.O. School',`<button class="btn primary" onclick="newsModal()">+ Nouvelle annonce</button>`)+`<div class="grid">${db.news.map(x=>`<div class="panel"><h3>${E(x.t)}</h3><p>${E(x.m)}</p><small>${E(x.d)}</small><div style="margin-top:8px"><a class="btn ghost" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('C.P.O. School — '+x.t+'\n'+x.m)}">💬 Partager sur WhatsApp</a> ${B('news',x.id)}</div></div>`).join('')||'<div class="panel">Aucune annonce.</div>'}</div>`};
@@ -707,9 +698,10 @@ const l0=window.login;window.login=function(){l0();rs();const lb=+localStorage.g
   };
 })();
 </script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="vendor/firebase-app-compat.js"></script>
+<script src="vendor/firebase-auth-compat.js"></script>
+<script src="vendor/firebase-firestore-compat.js"></script>
+<script id="cpo-cdn-fallback">if(!(window.firebase&&firebase.auth&&firebase.firestore)){['app','auth','firestore'].forEach(function(n){document.write('<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-'+n+'-compat.js"><\/script>')})}</script>
 <script id="cpo-firebase">
 /* ===== C.P.O. School : connexion sécurisée + base partagée (Firebase) ===== */
 /* 1) Collez ici la configuration de VOTRE projet Firebase (voir GUIDE-MISE-EN-LIGNE) */
@@ -733,6 +725,8 @@ const P={};let fs=null,auth=null,t=null,unsubs=[],staffCache=null,booting=true;
 const J=k=>JSON.stringify(db[k]);
 const st=s=>{try{cpoIndicator(s)}catch(e){}};
 const toEmail=id=>id.includes('@')?id:id+'@'+EMAIL_DOMAIN;
+const mapCache={};
+function prefetch(v){const id=String(v||'').trim().toLowerCase();if(!id||id.includes('@')||mapCache[id]||!fs)return;mapCache[id]=resolveEmail(id)}
 async function resolveEmail(id){if(id.includes('@'))return id;try{const s=await fs.doc('loginmap/'+id).get();if(s.exists&&s.data().email)return s.data().email}catch(e){}return toEmail(id)}
 async function makeAuth(email,pw){const sec=firebase.apps.find(a=>a.name==='sec')||firebase.initializeApp(FIREBASE_CONFIG,'sec');await sec.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);const c=await sec.auth().createUserWithEmailAndPassword(email,pw);await sec.auth().signOut();return c.user.uid}
 const vEmail=id=>id+'.'+Date.now().toString(36)+'@'+EMAIL_DOMAIN;
@@ -746,12 +740,19 @@ function saveLocal(){try{localStorage.setItem('cpo_db',JSON.stringify(db))}catch
 async function push(){t=null;if(!fs||!me)return false;st('syncing');
   try{for(const k of K){if(db[k]===undefined||!mayWrite(k))continue;const j=J(k);if(P[k]!==j){await fs.doc('app/'+k).set({json:j});P[k]=j}}st('synced');return true}
   catch(e){st('offline');toast('Erreur de synchronisation : '+(e.code||'réseau'));return false}}
-async function pullAll(){let ch=0;for(const k of K){if(!mayRead(k))continue;
-  try{const s=await fs.doc('app/'+k).get();if(s.exists){const v=s.data().json;if(v!==J(k)){db[k]=JSON.parse(v);ch++}P[k]=v}else{P[k]=undefined}}catch(e){}}
+async function pullAll(){let ch=0;
+  await Promise.all(K.filter(mayRead).map(async k=>{
+    try{const s=await fs.doc('app/'+k).get();if(s.exists){const v=s.data().json;if(v!==J(k)){db[k]=JSON.parse(v);ch++}P[k]=v}else{P[k]=undefined}}catch(e){}}));
   if(ch){saveLocal();if(me)show(page)}return ch}
-function listen(){K.forEach(k=>{if(!mayRead(k))return;
-  unsubs.push(fs.doc('app/'+k).onSnapshot(sn=>{if(t||!sn.exists)return;try{const v=sn.data().json;if(v===P[k]||v===J(k))return;db[k]=JSON.parse(v);P[k]=v;saveLocal();
-    const a=document.activeElement;if(me&&!document.querySelector('.modal.show')&&!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)))show(page)}catch(e){}},()=>{}))})}
+function listen(){const firsts=[];
+  K.forEach(k=>{if(!mayRead(k))return;
+    firsts.push(new Promise(res=>{let first=true;const done=()=>{if(first){first=false;res()}};setTimeout(done,8000);
+      unsubs.push(fs.doc('app/'+k).onSnapshot(sn=>{try{
+        if(first){if(sn.exists){const v=sn.data().json;db[k]=JSON.parse(v);P[k]=v}else{P[k]=undefined}}
+        else if(!t&&sn.exists){const v=sn.data().json;if(v===P[k]||v===J(k))return;db[k]=JSON.parse(v);P[k]=v;saveLocal();
+          const a=document.activeElement;if(me&&!document.querySelector('.modal.show')&&!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)))show(page)}
+      }catch(e){}done()},()=>done()))}))});
+  return Promise.all(firsts)}
 async function fullSync(){if(!fs||!me){st('offline');toast('Synchronisation impossible : non connecté.');return}clearTimeout(t);if(!await push())return;st('syncing');const n=await pullAll();st('synced');toast('Synchronisation terminée'+(n?' : '+n+' module(s) mis à jour.':', tout est à jour.'))}
 window.CPOCloudSync={markChanged(){if(!fs||!me){st('offline');return}clearTimeout(t);t=setTimeout(push,600)},sync:fullSync,pull:pullAll,push};
 
@@ -761,13 +762,17 @@ async function enter(user){
   const d=s.exists?s.data():null;
   if(!d||d.off||!perms[d.role]){await auth.signOut();er(d&&d.off?'Compte désactivé.':'Ce compte n’est pas autorisé. Contactez l’Administrateur.');return false}
   me={id:d.id,r:d.role,uid:user.uid};
-  blankDb();await pullAll();saveLocal();listen();st('synced');
+  blankDb();await listen();saveLocal();st('synced');
   er('');login();return true}
 async function doLogin(e){e.preventDefault();if(!CONFIGURED){er('Firebase n’est pas configuré (voir le guide).');return}
   const id=document.getElementById('u').value.trim().toLowerCase(),pw=document.getElementById('p').value;
+  const btn=document.querySelector('#lf button.primary'),label=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Connexion…'}
   er('');
-  try{const c=await auth.signInWithEmailAndPassword(await resolveEmail(id),pw);if(await enter(c.user))toast('Connexion de '+me.id)}
-  catch(x){er(errMsg(x.code||x.message))}}
+  try{const email=await(mapCache[id]||resolveEmail(id));
+    const c=await auth.signInWithEmailAndPassword(email,pw);if(await enter(c.user))toast('Connexion de '+me.id)}
+  catch(x){delete mapCache[id];er(errMsg(x.code||x.message))}
+  finally{if(btn){btn.disabled=false;btn.textContent=label||'Se connecter'}}}
 async function firstSetup(){if(!CONFIGURED){er('Firebase n’est pas configuré (voir le guide).');return}
   const id=document.getElementById('u').value.trim().toLowerCase(),pw=document.getElementById('p').value;
   if(!/^[a-z0-9._-]{3,}$/.test(id)){er('Identifiant : 3 caractères minimum (lettres, chiffres . _ -).');return}
@@ -794,7 +799,7 @@ window.usersPage=function(){
    +`<div class="panel"><table><tr><th>Identifiant</th><th>Rôle</th><th>État</th><th>Actions</th></tr>${rows||'<tr><td colspan="4">Chargement…</td></tr>'}</table><div class="sub" style="margin-top:10px">Mot de passe oublié : cliquez sur « 🔑 Nouveau mot de passe » sur la ligne de la personne et donnez-lui le nouveau mot de passe. (Le mot de passe de l’Administrateur lui-même se change avec « 🔑 Mon mot de passe ».)</div></div>`
    +`<div class="panel"><h3>Droits par rôle</h3><table><tr><th>Rôle</th><th>Modules</th></tr>${Object.keys(perms).map(r=>`<tr><td><b>${r}</b></td><td>${perms[r].join(' · ')}</td></tr>`).join('')}</table></div>`};
 window.usAdd=function(){if(!isAdminUI())return;
-  form('Nouveau compte',`<div class="field"><label>Identifiant (ou e-mail réel)</label><input name="id" required></div><div class="field"><label>Rôle</label><select name="r">${Object.keys(perms).map(x=>`<option>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>Mot de passe (8 min.)</label><input name="pw" type="password" required minlength="8"></div><button class="btn primary">Créer</button>`,async e=>{
+  form('Nouveau compte',`<div class="field"><label>Identifiant (ou e-mail réel)</label><input name="id" required placeholder="Ex : comptable"></div><div class="field"><label>Rôle</label><select name="r">${Object.keys(perms).map(x=>`<option>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>Mot de passe (8 min.)</label><input name="pw" type="password" required minlength="8" placeholder="8 caractères minimum" autocomplete="new-password"></div><button class="btn primary">Créer</button>`,async e=>{
   e.preventDefault();const o=Object.fromEntries(new FormData(e.target)),id=o.id.trim().toLowerCase();
   if(!/^[a-z0-9._@-]{3,}$/.test(id)){toast('Identifiant invalide (3 caractères min.).');return}
   if(o.pw.length<8){toast('Mot de passe trop court (8 min.).');return}
@@ -830,6 +835,7 @@ function init(){
   catch(e){er('Erreur Firebase : '+e.message);return}
   // données locales d'une ancienne version : on les supprime, les anciens mots de passe n'existent plus
   try{localStorage.removeItem('cpo_db')}catch(e){}blankDb();
+  const uf=document.getElementById('u');let pt;if(uf){uf.addEventListener('input',()=>{clearTimeout(pt);pt=setTimeout(()=>prefetch(uf.value),400)});uf.addEventListener('blur',()=>prefetch(uf.value))}
   auth.onAuthStateChanged(async u=>{if(booting){booting=false;if(u&&!me)await enter(u)}})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
@@ -885,57 +891,4 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   if(ios)window.addEventListener('DOMContentLoaded',function(){var b=mount();if(b)b.innerHTML='📲 Pour installer sur iPhone : touchez <b>Partager</b> (le carré avec la flèche) puis <b>« Sur l’écran d’accueil »</b>.'});
 })();
 </script>
-<style id="cpo-schedule-style">
-.sch-list{display:grid;gap:18px}.sch-class{overflow:hidden;border:1px solid #e5d5c2;border-radius:16px;background:#fff;box-shadow:0 8px 24px #342b2b0a;break-inside:avoid}.sch-class-head{display:flex;align-items:center;gap:12px;padding:16px 18px;background:linear-gradient(120deg,#69152b,#8d2942);color:#fff}.sch-class-kicker{font-size:10px;letter-spacing:.12em;font-weight:800;opacity:.8}.sch-class-head h2{margin:0;font-size:22px}.sch-class-head>span:last-child{margin-left:auto;font-size:12px;opacity:.9}.sch-table-wrap{overflow-x:auto}.sch-table{width:100%;border-collapse:collapse;min-width:620px}.sch-table th{padding:12px 14px;text-align:left;background:#fbf5ed;color:#786b64;font-size:11px;text-transform:uppercase;letter-spacing:.04em}.sch-table td{padding:12px 14px;border-top:1px solid #f0e8de;font-size:13px}.sch-table tbody tr:nth-child(even){background:#fffdf9}.sch-day{display:inline-block;padding:5px 9px;border-radius:999px;background:#f3e5ea;color:#69152b;font-weight:700}.sch-time{white-space:nowrap;font-weight:700;color:#69152b}.sch-empty{text-align:center!important;color:#786b64;padding:20px!important}.cpo-schedule-page{page-break-after:always;break-after:page}.cpo-schedule-page:last-child{page-break-after:auto;break-after:auto}.cpo-schedule-class{margin:22px 0 12px;padding:12px 16px;background:#69152b;color:#fff;text-align:center;border-radius:8px}.cpo-schedule-table{width:100%;border-collapse:collapse;font-size:12px}.cpo-schedule-table th{background:#f3e5d0;color:#342b2b;text-align:left}.cpo-schedule-table th,.cpo-schedule-table td{border:1px solid #cdbda9;padding:10px 9px}
-@media(max-width:700px){.sch-class-head{flex-wrap:wrap;gap:6px 10px;padding:14px}.sch-class-head h2{font-size:19px}.sch-class-head>span:last-child{margin-left:0;width:100%}.sch-table{min-width:600px}}
-@media print{.sch-list{display:block}.sch-class{box-shadow:none;margin-bottom:18px;break-inside:avoid}.sch-class-head{background:#69152b!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-</style><style id="cpo-schedule-reference-style">
-.sch-page{margin-top:8px}.sch-controls,.sch-board-wrap,.sch-list-panel{background:#fffaf5;border:1px solid #e8ddd3;border-radius:13px;margin-bottom:12px;padding:14px}.sch-controls>b{display:block;margin:0 0 8px 3px}.sch-tabs{display:flex;gap:7px;overflow-x:auto;padding:2px 1px 12px}.sch-class-tab{flex:0 0 auto;border:1px solid #e5d5c2;border-radius:8px;background:#fffaf3;padding:10px 16px;color:#342b2b;cursor:pointer}.sch-class-tab.active{background:#69152b;color:white;border-color:#69152b}.sch-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.sch-week{display:flex;align-items:center;gap:14px}.sch-week strong{color:#69152b;min-width:220px;text-align:center}.sch-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sch-actions .btn{white-space:nowrap}.sch-grid{display:grid;grid-template-columns:110px repeat(6,minmax(100px,1fr));grid-template-rows:48px repeat(11,52px);min-width:850px;border-top:1px solid #e7dacf;border-left:1px solid #e7dacf;border-radius:8px;overflow:hidden;background:#fffdf9}.sch-cell{border-right:1px solid #e7dacf;border-bottom:1px solid #e7dacf;display:flex;align-items:center;justify-content:center;text-align:center;padding:5px;font-size:13px}.sch-corner,.sch-day-head{background:#69152b;color:white;font-weight:700}.sch-hour{background:#fff7ef;white-space:nowrap}.sch-empty-cell{background:linear-gradient(#fffdf9,#fffaf5)}.sch-session{z-index:2;margin:2px 3px;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center;padding:4px;overflow:hidden;color:#17121a;border:1px solid #ffffffaa;box-shadow:0 1px 3px #0001}.sch-session b{font-size:13px}.sch-session span{font-size:12px}.sch-session small{font-size:10px;opacity:.78}.sch-session.green,.sch-legend .green{background:#c6f6c9}.sch-session.blue,.sch-legend .blue{background:#c6e5ff}.sch-session.pink,.sch-legend .pink{background:#ffc7dc}.sch-session.yellow,.sch-legend .yellow{background:#ffe9b2}.sch-session.purple,.sch-legend .purple{background:#e2caff}.sch-session.gray,.sch-legend .gray{background:#d9d9df}.sch-legend{display:flex;gap:18px;flex-wrap:wrap;padding:10px 0 0;color:#51434b;font-size:12px}.sch-legend span{display:flex;align-items:center;gap:6px}.sch-legend span:before{content:"";width:24px;height:20px;border-radius:4px;background:inherit;border:1px solid #0000000a}.sch-list-panel{padding:0;overflow:hidden}.sch-list-panel h2{margin:0;padding:12px 16px;background:#69152b;color:white;font-size:16px}.sch-list-table{width:100%;border-collapse:collapse;text-align:center}.sch-list-table th{background:#f2e5dc}.sch-list-table th,.sch-list-table td{padding:8px 7px;border:1px solid #e7dacf;font-size:13px}.sch-list-table tbody tr:nth-child(even){background:#fffdf9}
-@media(max-width:760px){.sch-controls,.sch-board-wrap,.sch-list-panel{padding:9px}.sch-week{width:100%;justify-content:space-between}.sch-week strong{min-width:0;font-size:13px}.sch-actions{width:100%}.sch-actions .btn{font-size:11px;padding:7px 9px}.sch-grid{grid-template-columns:86px repeat(6,minmax(90px,1fr));grid-template-rows:42px repeat(11,48px);min-width:720px}.sch-list-table{min-width:700px}.sch-list-panel .sch-table-wrap{overflow-x:auto}}
-@media print{.sch-controls,.sch-grid,.sch-legend{display:none!important}.sch-list-panel{border:0;margin:0}.sch-list-panel h2{background:#69152b!important;color:white!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-</style><style id="cpo-schedule-print-view">
-@media print{
-@page{size:A4 landscape;margin:8mm}
-body.sch-print-mode *{visibility:hidden!important}
-body.sch-print-mode #stt,body.sch-print-mode #stt *{visibility:visible!important}
-body.sch-print-mode #stt{position:absolute!important;left:0!important;top:0!important;width:100%!important;padding:0!important;margin:0!important;background:#fff!important}
-body.sch-print-mode .sch-controls{display:none!important}
-body.sch-print-mode .sch-board-wrap,body.sch-print-mode .sch-class-view,body.sch-print-mode .sch-grid{display:block!important;width:100%!important;min-width:0!important;overflow:visible!important;border:0!important;box-shadow:none!important}
-body.sch-print-mode .sch-print-header,body.sch-print-mode #schPrintHeader{display:block!important;visibility:visible!important;text-align:center;margin:0 0 8px;padding:0 0 6px;border-bottom:2px solid #69152b}
-body.sch-print-mode #schPrintHeader h1{font-size:17px;margin:0 0 3px;color:#69152b}
-body.sch-print-mode #schPrintHeader p{font-size:11px;margin:0}
-body.sch-print-mode .sch-grid{display:grid!important;grid-template-columns:72px repeat(6,minmax(0,1fr))!important;grid-template-rows:28px repeat(11,28px)!important}
-body.sch-print-mode .sch-cell{font-size:9px!important;padding:2px!important}
-body.sch-print-mode .sch-session{padding:2px!important;margin:1px!important;gap:1px!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
-body.sch-print-mode .sch-session b{font-size:9px!important}
-body.sch-print-mode .sch-session span{font-size:8px!important}
-body.sch-print-mode .sch-session small{font-size:7px!important}
-body.sch-print-mode .sch-legend{display:flex!important;gap:10px!important;padding:5px 0!important;font-size:9px!important}
-body.sch-print-mode .sch-legend span:before{width:14px!important;height:12px!important}
-body.sch-print-mode .sch-list-panel{display:block!important;width:100%!important;margin:4px 0 0!important;border:1px solid #d6c9bd!important;overflow:visible!important;break-inside:avoid}
-body.sch-print-mode .sch-list-panel h2{font-size:11px!important;padding:5px 8px!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
-body.sch-print-mode .sch-list-table{width:100%!important;min-width:0!important;border-collapse:collapse!important}
-body.sch-print-mode .sch-list-table th,body.sch-print-mode .sch-list-table td{font-size:8px!important;padding:3px!important}
-body.sch-print-mode .sch-list-table .btn{display:none!important}
-body.sch-print-mode .sch-session.green,body.sch-print-mode .sch-legend .green{background:#c6f6c9!important}
-body.sch-print-mode .sch-session.blue,body.sch-print-mode .sch-legend .blue{background:#c6e5ff!important}
-body.sch-print-mode .sch-session.pink,body.sch-print-mode .sch-legend .pink{background:#ffc7dc!important}
-body.sch-print-mode .sch-session.yellow,body.sch-print-mode .sch-legend .yellow{background:#ffe9b2!important}
-body.sch-print-mode .sch-session.purple,body.sch-print-mode .sch-legend .purple{background:#e2caff!important}
-body.sch-print-mode .sch-session.gray,body.sch-print-mode .sch-legend .gray{background:#d9d9df!important}
-}
-</style><style id="cpo-schedule-print-centering">
-@page schedule{size:A4 landscape;margin:8mm}
-@media print{
-body.sch-print-mode #stt{page:schedule;left:0!important;right:0!important;top:0!important;bottom:0!important;width:277mm!important;max-width:277mm!important;height:190mm!important;margin:auto!important;display:flex!important;flex-direction:column!important;justify-content:center!important;box-sizing:border-box!important}
-body.sch-print-mode #schPrintHeader{width:100%;box-sizing:border-box}
-body.sch-print-mode .sch-class-view{width:100%!important;margin:0 auto!important}
-body.sch-print-mode .sch-grid{width:100%!important;margin:0 auto!important}
-body.sch-print-mode .sch-list-panel{width:100%!important;margin-left:auto!important;margin-right:auto!important}
-.cpo-schedule-page{page:schedule;width:100%;max-width:277mm;min-height:180mm;margin:0 auto;display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;page-break-after:always;break-after:page}
-.cpo-schedule-page:last-child{page-break-after:auto;break-after:auto}
-.cpo-schedule-page .cpo-report-title{text-align:center;margin:0 auto 8mm;width:100%}
-.cpo-schedule-page .cpo-schedule-class{width:100%;max-width:220mm;margin:0 auto 8mm;text-align:center}
-.cpo-schedule-page .cpo-schedule-table{width:100%;margin:0 auto}
-}
-</style></body></html>
+</body></html>
