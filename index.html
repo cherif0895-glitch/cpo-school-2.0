@@ -172,11 +172,13 @@ function del(c,id){if(!["Administrateur","Direction","Surveillant Général","Su
     cpoPrint('Rapport des absences',`<div class="cpo-report-title"><h1>C.P.O. SCHOOL</h1><h2>RAPPORT DES ABSENCES ET RETARDS</h2><p>Édité le ${today()}</p></div><table border="1" cellspacing="0" cellpadding="8" style="width:100%;border-collapse:collapse"><tr><th>#</th><th>Élève</th><th>Date</th><th>Type</th><th>Justification / Motif</th></tr>${rows||'<tr><td colspan="5">Aucune absence</td></tr>'}</table>`)
   };
   window.cpoPrintSchedule=function(classOnly){
+    const jours=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+    const now=new Date(),yearStart=now.getMonth()>=8?now.getFullYear():now.getFullYear()-1;
+    const schoolYear=(db.cfg&&db.cfg.annee)||(yearStart+'–'+(yearStart+1));
     const pages=(classOnly?[classOnly]:classes).map(c=>{
-      const rows=db.schedule.filter(x=>x.classe===c).sort((a,b)=>JOURS.indexOf(a.jour)-JOURS.indexOf(b.jour)||a.debut.localeCompare(b.debut));
-
+      const rows=db.schedule.filter(x=>x.classe===c).sort((a,b)=>jours.indexOf(a.jour)-jours.indexOf(b.jour)||String(a.debut||'').localeCompare(String(b.debut||'')));
       const body=rows.map(x=>'<tr><td>'+safe(x.jour)+'</td><td>'+safe(x.debut)+' – '+safe(x.fin)+'</td><td><b>'+safe(x.matiere)+'</b></td><td>'+safe(x.enseignant)+'</td><td>'+safe(x.salle||'—')+'</td></tr>').join('');
-      return '<section class="cpo-schedule-page"><div class="cpo-report-title"><h1>C.P.O. SCHOOL</h1><h2>EMPLOI DU TEMPS</h2><p>Année scolaire '+safe(annee())+' · Édité le '+today()+'</p></div><h2 class="cpo-schedule-class">'+safe(c)+'</h2><table class="cpo-schedule-table"><thead><tr><th>Jour</th><th>Horaire</th><th>Matière</th><th>Enseignant</th><th>Salle</th></tr></thead><tbody>'+(body||'<tr><td colspan="5">Aucun cours planifié.</td></tr>')+'</tbody></table></section>';
+      return '<section class="cpo-schedule-page"><div class="cpo-report-title"><h1>C.P.O. SCHOOL</h1><h2>EMPLOI DU TEMPS</h2><p>Année scolaire '+safe(schoolYear)+' · Édité le '+today()+'</p></div><h2 class="cpo-schedule-class">'+safe(c)+'</h2><table class="cpo-schedule-table"><thead><tr><th>Jour</th><th>Horaire</th><th>Matière</th><th>Enseignant</th><th>Salle</th></tr></thead><tbody>'+(body||'<tr><td colspan="5">Aucun cours planifié.</td></tr>')+'</tbody></table></section>';
     }).join('');
     cpoPrint('Emplois du temps par classe',pages||'<div class="cpo-report-title"><h1>C.P.O. SCHOOL</h1><h2>EMPLOI DU TEMPS</h2></div><p>Aucun cours enregistré.</p>')
   };  window.cpoBulletinModal=function(){
