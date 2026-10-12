@@ -1,4 +1,12 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#69152b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CPO School">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <title>C.P.O. School — Gestion Scolaire</title>
 <style>
 :root{--b:#69152b;--b2:#8d2942;--be:#f3e5d0;--bg:#fffaf3;--ink:#342b2b;--line:#e5d5c2;--mut:#786b64}
@@ -716,6 +724,9 @@ const P={};let fs=null,auth=null,t=null,unsubs=[],staffCache=null,booting=true;
 const J=k=>JSON.stringify(db[k]);
 const st=s=>{try{cpoIndicator(s)}catch(e){}};
 const toEmail=id=>id.includes('@')?id:id+'@'+EMAIL_DOMAIN;
+async function resolveEmail(id){if(id.includes('@'))return id;try{const s=await fs.doc('loginmap/'+id).get();if(s.exists&&s.data().email)return s.data().email}catch(e){}return toEmail(id)}
+async function makeAuth(email,pw){const sec=firebase.apps.find(a=>a.name==='sec')||firebase.initializeApp(FIREBASE_CONFIG,'sec');await sec.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);const c=await sec.auth().createUserWithEmailAndPassword(email,pw);await sec.auth().signOut();return c.user.uid}
+const vEmail=id=>id+'.'+Date.now().toString(36)+'@'+EMAIL_DOMAIN;
 const er=m=>{const e=document.getElementById('err');if(e)e.textContent=m||''};
 const errMsg=c=>({'auth/invalid-credential':'Identifiant ou mot de passe incorrect.','auth/wrong-password':'Identifiant ou mot de passe incorrect.','auth/user-not-found':'Identifiant ou mot de passe incorrect.','auth/invalid-email':'Identifiant invalide.','auth/too-many-requests':'Trop de tentatives. Réessayez dans quelques minutes.','auth/network-request-failed':'Pas de connexion internet.','auth/email-already-in-use':'Cet identifiant existe déjà dans Firebase (utilisez-en un autre).','auth/weak-password':'Mot de passe trop faible (8 caractères minimum).'}[c]||('Erreur : '+c));
 
@@ -746,7 +757,7 @@ async function enter(user){
 async function doLogin(e){e.preventDefault();if(!CONFIGURED){er('Firebase n’est pas configuré (voir le guide).');return}
   const id=document.getElementById('u').value.trim().toLowerCase(),pw=document.getElementById('p').value;
   er('');
-  try{const c=await auth.signInWithEmailAndPassword(toEmail(id),pw);if(await enter(c.user))toast('Connexion de '+me.id)}
+  try{const c=await auth.signInWithEmailAndPassword(await resolveEmail(id),pw);if(await enter(c.user))toast('Connexion de '+me.id)}
   catch(x){er(errMsg(x.code||x.message))}}
 async function firstSetup(){if(!CONFIGURED){er('Firebase n’est pas configuré (voir le guide).');return}
   const id=document.getElementById('u').value.trim().toLowerCase(),pw=document.getElementById('p').value;
@@ -769,9 +780,9 @@ const isAdminUI=()=>me&&me.r==='Administrateur';
 window.usersPage=function(){
   if(!isAdminUI())return'<div class="panel">Accès réservé à l’Administrateur.</div>';
   if(!staffCache)loadStaff().then(()=>{if(page==='utilisateurs')show('utilisateurs')}).catch(()=>toast('Impossible de charger les comptes.'));
-  const rows=(staffCache||[]).map(u=>`<tr><td><b>${esc(u.id)}</b></td><td>${esc(u.role)}</td><td>${u.off?'🔴 Désactivé':'🟢 Actif'}</td><td>${u.uid!==me.uid?`<button class="btn ghost" onclick="usOff('${esc(u.uid)}')">${u.off?'Activer':'Désactiver'}</button> <button class="btn danger" onclick="usDel('${esc(u.uid)}')">Retirer l’accès</button> `:''}${u.email&&u.email.includes('@')&&!u.email.endsWith('@'+EMAIL_DOMAIN)?`<button class="btn ghost" onclick="usPw('${esc(u.uid)}')">📧 Réinitialiser le mot de passe</button>`:''}</td></tr>`).join('');
+  const rows=(staffCache||[]).map(u=>`<tr><td><b>${esc(u.id)}</b></td><td>${esc(u.role)}</td><td>${u.off?'🔴 Désactivé':'🟢 Actif'}</td><td>${u.uid!==me.uid?`<button class="btn ghost" onclick="usPw('${esc(u.uid)}')">🔑 Nouveau mot de passe</button> <button class="btn ghost" onclick="usOff('${esc(u.uid)}')">${u.off?'Activer':'Désactiver'}</button> <button class="btn danger" onclick="usDel('${esc(u.uid)}')">Retirer l’accès</button>`:'<span class="sub">Votre compte</span>'}</td></tr>`).join('');
   return head('Utilisateurs & droits','Comptes sécurisés (Firebase) · rôles et activation',`<button class="btn primary" onclick="usAdd()">+ Nouveau compte</button>`)
-   +`<div class="panel"><table><tr><th>Identifiant</th><th>Rôle</th><th>État</th><th>Actions</th></tr>${rows||'<tr><td colspan="4">Chargement…</td></tr>'}</table><div class="sub" style="margin-top:10px">Mot de passe oublié : l’utilisateur peut le changer via « 🔑 Mon mot de passe ». Pour un compte sans e-mail réel, retirez l’accès puis créez un nouveau compte avec un autre identifiant.</div></div>`
+   +`<div class="panel"><table><tr><th>Identifiant</th><th>Rôle</th><th>État</th><th>Actions</th></tr>${rows||'<tr><td colspan="4">Chargement…</td></tr>'}</table><div class="sub" style="margin-top:10px">Mot de passe oublié : cliquez sur « 🔑 Nouveau mot de passe » sur la ligne de la personne et donnez-lui le nouveau mot de passe. (Le mot de passe de l’Administrateur lui-même se change avec « 🔑 Mon mot de passe ».)</div></div>`
    +`<div class="panel"><h3>Droits par rôle</h3><table><tr><th>Rôle</th><th>Modules</th></tr>${Object.keys(perms).map(r=>`<tr><td><b>${r}</b></td><td>${perms[r].join(' · ')}</td></tr>`).join('')}</table></div>`};
 window.usAdd=function(){if(!isAdminUI())return;
   form('Nouveau compte',`<div class="field"><label>Identifiant (ou e-mail réel)</label><input name="id" required></div><div class="field"><label>Rôle</label><select name="r">${Object.keys(perms).map(x=>`<option>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>Mot de passe (8 min.)</label><input name="pw" type="password" required minlength="8"></div><button class="btn primary">Créer</button>`,async e=>{
@@ -779,15 +790,23 @@ window.usAdd=function(){if(!isAdminUI())return;
   if(!/^[a-z0-9._@-]{3,}$/.test(id)){toast('Identifiant invalide (3 caractères min.).');return}
   if(o.pw.length<8){toast('Mot de passe trop court (8 min.).');return}
   if((staffCache||[]).some(x=>x.id===id)){toast('Identifiant déjà utilisé.');return}
-  let sec;try{sec=firebase.apps.find(a=>a.name==='sec')||firebase.initializeApp(FIREBASE_CONFIG,'sec');
-    await sec.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
-    const c=await sec.auth().createUserWithEmailAndPassword(toEmail(id),o.pw);await sec.auth().signOut();
-    await fs.doc('staff/'+c.user.uid).set({id,role:o.r,off:false,email:toEmail(id)});
+  try{let email=toEmail(id),uid;
+    try{uid=await makeAuth(email,o.pw)}catch(x){if(x.code==='auth/email-already-in-use'&&!id.includes('@')){email=vEmail(id);uid=await makeAuth(email,o.pw)}else throw x}
+    await fs.doc('staff/'+uid).set({id,role:o.r,off:false,email});
+    if(!id.includes('@'))await fs.doc('loginmap/'+id).set({email});
     await loadStaff();window.close();show('utilisateurs');toast('Compte créé : '+id)}
   catch(x){toast(errMsg(x.code||x.message))}})};
 window.usOff=async function(uid){const u=(staffCache||[]).find(x=>x.uid===uid);if(!u)return;try{await fs.doc('staff/'+uid).update({off:!u.off});u.off=!u.off;show('utilisateurs');toast((u.off?'Compte désactivé : ':'Compte activé : ')+u.id)}catch(e){toast('Action refusée.')}};
 window.usDel=async function(uid){const u=(staffCache||[]).find(x=>x.uid===uid);if(!u||!confirm('Retirer l’accès du compte '+u.id+' ?'))return;try{await fs.doc('staff/'+uid).delete();staffCache=staffCache.filter(x=>x.uid!==uid);show('utilisateurs');toast('Accès retiré : '+u.id)}catch(e){toast('Action refusée.')}};
-window.usPw=async function(uid){const u=(staffCache||[]).find(x=>x.uid===uid);if(!u)return;try{await auth.sendPasswordResetEmail(u.email);toast('E-mail de réinitialisation envoyé à '+u.email)}catch(e){toast(errMsg(e.code||e.message))}};
+window.usPw=async function(uid){if(!isAdminUI())return;const u=(staffCache||[]).find(x=>x.uid===uid);if(!u||u.uid===me.uid)return;
+  if(u.id.includes('@')){try{await auth.sendPasswordResetEmail(u.id);toast('E-mail de réinitialisation envoyé à '+u.id)}catch(e){toast(errMsg(e.code||e.message))}return}
+  const n=prompt('Nouveau mot de passe pour « '+u.id+' » (8 caractères minimum) :');if(!n)return;if(n.length<8){toast('Mot de passe trop court (8 min.).');return}
+  try{const email=vEmail(u.id),nu=await makeAuth(email,n);
+    await fs.doc('staff/'+nu).set({id:u.id,role:u.role,off:!!u.off,email});
+    await fs.doc('loginmap/'+u.id).set({email});
+    await fs.doc('staff/'+u.uid).delete();
+    await loadStaff();show('utilisateurs');toast('Nouveau mot de passe défini pour '+u.id)}
+  catch(e){toast(errMsg(e.code||e.message))}};
 window.monMdp=async function(){if(!me)return;const o=prompt('Mot de passe actuel :');if(!o)return;const n=prompt('Nouveau mot de passe (8 caractères minimum) :');if(!n||n.length<8){toast('Mot de passe trop court (8 min.).');return}
   try{const u=auth.currentUser;await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email,o));await u.updatePassword(n);toast('Votre mot de passe a été modifié.')}
   catch(e){toast(errMsg(e.code||e.message))}};
@@ -806,5 +825,55 @@ function init(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 
+</script>
+<style id="cpo-mobile">
+/* Affichage téléphone (écrans de 700 px et moins) */
+@media(max-width:700px){
+  .login{padding:18px!important;background:linear-gradient(165deg,#4d0e20,#7a1a33)!important;align-items:center!important}
+  .login .hero{display:none!important}
+  .loginbox{width:100%!important;max-width:400px!important;min-width:0!important;margin:0 auto!important;padding:24px 20px 16px!important;background:#fff!important;border-radius:20px!important;box-shadow:0 18px 50px #0007!important}
+  .loginbox .brand{display:flex!important;flex-direction:column;align-items:center;text-align:center;gap:6px;margin-bottom:14px}
+  .loginbox .brand img{width:120px!important;height:120px!important}
+  .loginbox .brand h1{font-size:22px!important;margin:0!important}
+  .loginbox .brand p{margin:0!important}
+  .loginbox .field label{display:block!important;visibility:visible!important;opacity:1!important;position:static!important;height:auto!important;width:auto!important;color:#4a4545!important;font-weight:700;font-size:13px!important;margin:0 0 4px}
+  .loginbox input{font-size:16px!important}
+  .creator{margin-top:14px!important}
+  .top{height:auto!important;flex-wrap:wrap;padding:8px 10px!important;gap:6px;position:static!important}
+  .topbrand{width:100%}
+  .top>div:last-child{width:100%;display:flex!important;gap:6px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+  .top .btn{flex:0 0 auto;white-space:nowrap;min-height:38px!important;padding:8px 12px!important;font-size:12px!important}
+  .layout{flex-direction:column!important;min-height:0!important}
+  aside{width:100%!important;display:flex!important;flex-direction:row;overflow-x:auto;padding:6px 8px!important;border-right:0!important;border-bottom:1px solid #e7e3e6;position:sticky;top:0;z-index:15;box-shadow:0 2px 8px #0000000d;-webkit-overflow-scrolling:touch}
+  aside .navtitle{display:none!important}
+  aside .nav{width:auto!important;flex:0 0 auto;font-size:13px!important;justify-content:flex-start!important;padding:8px 12px!important;margin:0 3px!important;min-height:40px!important;white-space:nowrap}
+  aside .nav.on{box-shadow:inset 0 -3px 0 var(--b)!important}
+  main{padding:12px!important;min-width:0}
+  .panel{overflow-x:auto}
+  .modalbox{width:calc(100vw - 24px)!important;max-width:none!important;max-height:90vh;overflow:auto}
+}
+</style>
+<script id="cpo-pwa">
+/* Application installable : enregistrement du service worker + bouton « Installer » */
+(function(){
+  if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})});
+  // petit écran : indications directement dans les champs de connexion
+  window.addEventListener('DOMContentLoaded',function(){if(window.matchMedia&&matchMedia('(max-width:700px)').matches){var u=document.getElementById('u'),p=document.getElementById('p');if(u)u.placeholder='Identifiant';if(p)p.placeholder='Mot de passe'}});
+  var standalone=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone;
+  if(standalone)return;
+  var dp=null,box=null;
+  function mount(){
+    if(box)return box;var anchor=document.querySelector('#login .creator');if(!anchor)return null;
+    box=document.createElement('div');box.id='cpo-install';
+    box.style.cssText='margin:12px 0 4px;text-align:center;font:600 13px Segoe UI,Arial,sans-serif;color:#4a4545';
+    anchor.parentNode.insertBefore(box,anchor);return box}
+  window.addEventListener('beforeinstallprompt',function(e){
+    e.preventDefault();dp=e;var b=mount();if(!b)return;
+    b.innerHTML='<button type="button" class="btn ghost" style="width:100%;min-height:44px">📲 Installer l’application sur cet appareil</button>';
+    b.firstChild.onclick=function(){dp.prompt();dp.userChoice.finally(function(){dp=null;b.innerHTML=''})}});
+  window.addEventListener('appinstalled',function(){if(box)box.innerHTML=''});
+  var ios=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(ios)window.addEventListener('DOMContentLoaded',function(){var b=mount();if(b)b.innerHTML='📲 Pour installer sur iPhone : touchez <b>Partager</b> (le carré avec la flèche) puis <b>« Sur l’écran d’accueil »</b>.'});
+})();
 </script>
 </body></html>
