@@ -442,7 +442,7 @@ db.students=db.students.filter(x=>x.id!==id);save();show('eleves');toast('Élèv
 <script id="cpo-v3">
 (function(){
 const E=v=>esc(v),adm=()=>['Administrateur','Direction'].includes(me.r),can=()=>['Administrateur','Direction','Surveillant Général','Surveillant secondaire'].includes(me.r),
-td=()=>new Date().toISOString().slice(0,10),fd=d=>d?new Date(d).toLocaleDateString('fr-FR'):'—',seuil=()=>(db.cfg&&db.cfg.seuil)||3,JOURS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'],
+td=()=>new Date().toISOString().slice(0,10),fd=d=>d?new Date(d).toLocaleDateString('fr-FR'):'—',seuil=()=>(db.cfg&&db.cfg.seuil)||3,JOURS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'],SALLES=['Salle 1','Salle 2','Salle 3','Salle 4','Salle 5'],
 mine=(r,s)=>r.eleveId?String(r.eleveId)===String(s.id):String(r.eleve).startsWith(s.nom+' '+s.prenom+' —'),lab=s=>s.nom+' '+s.prenom+' — '+s.classe,
 wa=(s,t)=>{let d=String(s&&s.tel||'').replace(/\D/g,'');if(d.length===9)d='221'+d;return d?'https://wa.me/'+d+'?text='+encodeURIComponent(t):''},
 yr=()=>{const n=new Date(),y=n.getMonth()>=8?n.getFullYear():n.getFullYear()-1;return y+'–'+(y+1)},
@@ -450,14 +450,14 @@ H0='<div class="cpo-report-title"><h1>C.P.O. SCHOOL</h1><p>Medinatoul Mounawara 
 F=(l,n,v,t,o)=>`<div class="field"><label>${l}</label>${t==='sel'||o?`<select name="${n}">${o.map(x=>`<option ${x==v?'selected':''}>${E(x)}</option>`).join('')}</select>`:t==='area'?`<textarea name="${n}">${E(v)}</textarea>`:`<input type="${t||'text'}" name="${n}" value="${E(v)}">`}</div>`;
 function conflict(o,id){const m=t=>{const[a,b]=t.split(':');return +a*60+ +b},n=v=>String(v||'').trim().toLowerCase();if(!o.debut||!o.fin||m(o.fin)<=m(o.debut))return 'Heure de fin invalide.';
 for(const x of db.schedule){if(x.id===id||x.jour!==o.jour||m(x.fin)<=m(o.debut)||m(o.fin)<=m(x.debut))continue;
+if(n(x.salle)&&n(x.salle)===n(o.salle))return 'Salle indisponible : '+x.salle+' est déjà réservée par la classe '+x.classe+' de '+x.debut+' à '+x.fin+'. Choisissez une autre salle.';
 if(x.classe===o.classe)return 'Conflit : '+x.classe+' a déjà '+x.matiere+' ('+x.debut+'–'+x.fin+').';
-if(n(x.enseignant)&&n(x.enseignant)===n(o.enseignant))return 'Conflit : '+x.enseignant+' enseigne déjà en '+x.classe+' ('+x.debut+'–'+x.fin+').';
-if(n(x.salle)&&n(x.salle)===n(o.salle))return 'Conflit : salle '+x.salle+' occupée par '+x.classe+' ('+x.debut+'–'+x.fin+').'}return ''}
+if(n(x.enseignant)&&n(x.enseignant)===n(o.enseignant))return 'Conflit : '+x.enseignant+' enseigne déjà en '+x.classe+' ('+x.debut+'–'+x.fin+').'}return ''}
 const DEF={abs:{t:'Modifier le pointage',pg:'absences',f:[['Date','date','date'],['Type','type','sel',['Absence','Retard']],['Statut','just','sel',['Non justifiée','Justifiée']],['Motif','motif']]},
 notes:{t:'Modifier la note',pg:'notes',f:[['Matière','mat'],['Note /20','note','number'],['Coefficient','coef','number']]},
 disc:{t:"Modifier l'incident",pg:'discipline',f:[['Date','date','date'],['Type','type'],['Description','desc','area'],['Disposition','action'],['Statut','status','sel',['En suivi','Clôturé']]]},
 news:{t:"Modifier l'annonce",pg:'communication',f:[['Titre','t'],['Message','m','area']]},
-schedule:{t:'Cours',pg:'emploi',f:[['Classe','classe','sel',classes],['Jour','jour','sel',JOURS],['Début','debut','time'],['Fin','fin','time'],['Matière','matiere'],['Enseignant','enseignant'],['Salle','salle']],chk:conflict}};
+schedule:{t:'Cours',pg:'emploi',f:[['Classe','classe','sel',classes],['Jour','jour','sel',JOURS],['Début','debut','time'],['Fin','fin','time'],['Matière','matiere'],['Enseignant','enseignant'],['Salle','salle','sel',SALLES]],chk:conflict}};
 window.ED=function(c,id){const d=DEF[c];if(!can()){toast('Modification non autorisée.');return}const r=id?db[c].find(x=>x.id===id):{};if(id&&!r)return;
 form(id?d.t:'Ajouter un cours',`<div class="grid">${d.f.map(x=>F(x[0],x[1],r[x[1]]??(x[2]==='date'?td():x[2]==='time'?'08:00':''),x[2],x[3])).join('')}</div><button class="btn primary">Enregistrer</button> <button type="button" class="btn ghost" onclick="window.close()">Annuler</button>`,e=>{e.preventDefault();
 const o=Object.fromEntries(new FormData(e.target)),er=d.chk&&d.chk(o,id);if(er){toast(er);return}if(id)Object.assign(r,o);else db[c].push({id:Date.now(),...o});save();window.close();show(d.pg);toast(d.pg+' : enregistré.')})};
