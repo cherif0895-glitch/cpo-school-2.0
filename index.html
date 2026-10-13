@@ -950,7 +950,7 @@ body.sch-print-mode .sch-list-panel{flex:0 0 auto!important;min-width:0!importan
 @media print{
 /* Planning imprimé en grand, avec assez de place pour être lu sans couleur. */
 
-body.sch-print-mode #stt{position:relative!important;inset:auto!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;width:100%!important;max-width:277mm!important;height:auto!important;min-height:190mm!important;margin:0 auto!important;padding:0!important;display:flex!important;flex-direction:column!important;justify-content:center!important;overflow:visible!important;box-sizing:border-box!important}
+body.sch-print-mode #stt{position:fixed!important;left:50%!important;right:auto!important;top:7mm!important;bottom:auto!important;transform:translateX(-50%)!important;width:277mm!important;max-width:calc(100vw - 14mm)!important;height:auto!important;min-height:190mm!important;margin:0!important;padding:0!important;display:flex!important;flex-direction:column!important;justify-content:center!important;overflow:visible!important;box-sizing:border-box!important}
 body.sch-print-mode .sch-grid{grid-template-columns:84px repeat(6,minmax(0,1fr))!important;grid-template-rows:36px repeat(11,36px)!important;break-inside:avoid!important}
 body.sch-print-mode .sch-cell{font-size:11px!important;padding:3px!important;color:#111!important;border-color:#444!important}
 body.sch-print-mode .sch-day-head{font-weight:900!important;color:#000!important;background:#fff!important;border:1.5px solid #000!important}
